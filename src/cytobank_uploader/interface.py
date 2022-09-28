@@ -53,7 +53,7 @@ def test_token(token: str, domain: str = "premium", verbose: bool = False) -> bo
         return True
     elif response["errors"][0] == "Not Authenticated -- invalid or missing auth token":
         return False
-    else
+    else:
         return False
 
 
@@ -80,7 +80,7 @@ def load_stored_auth_token(
     if config_file.exists():
         config = {
             k.split("=")[0]: k.split("=")[1]
-            for k in config_file.read_text().split("\n")
+            for k in config_file.read_text().rstrip().split("\n")
         }
 
         if "API_TOKEN" in config:
@@ -402,3 +402,39 @@ def _list_experiment_fcs_files(
         )
 
     return fcs_files
+
+
+def _list_experiments(
+    auth_token: Optional[str] = None,
+    cytobank_domain: str = "premium",
+    print_list: bool = False,
+    verbose: bool = False,
+    ) -> List[str]:
+
+    if verbose:
+        logger.add(stderr, level="DEBUG")
+    else:
+        logger.add(stderr, level="ERROR")
+
+    if auth_token is None:
+        auth_token = _get_auth_token()
+    elif not test_token(auth_token):
+        raise InvalidTokenError(auth_token)
+
+    payload = {}
+    headers = {"Authorization": f"Bearer {auth_token}"}
+
+    response = requests.get(
+        url=f"https://{cytobank_domain}.cytobank.org/cytobank/api/v1/experiments",
+        headers=headers,
+        data=payload,
+    )
+
+    if response.status_code == 200:
+        experiments_list = [
+            Experiment.from_dict(_) for _ in json.loads(response.text)["experiments"]
+        ]
+    else:
+        raise requests.HTTPError(f"HTTP error with code {response.status_code}")
+    
+    return experiments_list

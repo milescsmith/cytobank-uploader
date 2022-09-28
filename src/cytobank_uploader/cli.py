@@ -17,6 +17,7 @@ from .interface import (
     _list_experiment_fcs_files,
     _upload_files,
     get_upload_token,
+    _list_experiments,
 )
 
 install(show_locals=True)
@@ -130,9 +131,6 @@ def list_experiments(
         "--domain",
         help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
     ),
-    print_list: bool = typer.Option(
-        True, "-p", "--print", help="print the last of experiments to the console"
-    ),
     verbose: bool = typer.Option(False, "-v", "--verbose"),
 ) -> list[Experiment]:
     """List the experiments associated with the account.  Will print in the form
@@ -156,33 +154,16 @@ def list_experiments(
         A list of the current experiments, in the form of **experimentTitle**: **experimentId**
 
     """
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
+    
 
-    if auth_token is None:
-        auth_token = get_auth_token()
-
-    payload = {}
-    headers = {"Authorization": f"Bearer {auth_token}"}
-
-    response = requests.get(
-        url=f"https://{cytobank_domain}.cytobank.org/cytobank/api/v1/experiments",
-        headers=headers,
-        data=payload,
+    experiments_list = _list_experiments(
+        auth_token,
+        cytobank_domain,
+        verbose=verbose
     )
-
-    if response.status_code == 200:
-        experiments_list = [
-            Experiment.from_dict(_) for _ in json.loads(response.text)["experiments"]
-        ]
-    else:
-        raise requests.HTTPError(f"HTTP error with code {response.status_code}")
-
-    if print_list:
-        for _ in experiments_list:
-            pprint(_)
+    
+    for _ in experiments_list:
+        pprint(_)
 
     return experiments_list
 
