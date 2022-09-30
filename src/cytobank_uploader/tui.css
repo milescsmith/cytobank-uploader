@@ -2,6 +2,13 @@ Screen {
     height: 100%;
 }
 
+Button {
+    width: 16;
+    height: 1;
+    margin: 0;
+}
+
+/* top third of the screen */
 ButtonPanel {
     layout: vertical;
 }
@@ -22,13 +29,7 @@ TokenPanel {
     margin: 1;
 }
 
-UploadPanel {
-    height: 60%;
-    width: 60%;
-    border: solid green;
-}
-
-#username {
+#username-input {
     background: grey;
     padding: 1;
     width: 20;
@@ -36,36 +37,12 @@ UploadPanel {
     height: 1;
 }
 
-#password {
+#password-input {
     background: grey;
     padding: 1;
     margin: 0;
     height: 1;
     width: 20;
-}
-
-#filepath {
-    background: grey;
-    width: 50;
-}
-
-Button {
-    width: 16;
-    height: 1;
-    margin: 0;
-}
-
-#start {
-    dock: left;
-}
-
-#stop {
-    dock: left;
-    display: none;
-}
-
-#reset {
-    dock: right;
 }
 
 .valid {
@@ -84,18 +61,59 @@ Button {
     background: red;
 }
 
+/* bottom 2/3rds, left*/
 
-.treecontainer {
-    layout: horizontal;
-    border: solid red;
-}
-
-#getexperiments{
+#getexp-btn{
     width: 24;
 }
 
-#experimentvertical {
+#experiment-panel {
     layout: vertical;
-    height: 50%;
-    width: 25%;
+    height: 75%;
+    width: 30%;
+}
+
+/* bottom 2/3rds, center */
+
+#path-panel {
+    width: 30%;
+    height: 75%;
+}
+
+#path-input {
+    background: grey;
+    width: 50;
+}
+
+
+#path-tree {
+    width: 50;
+    height: 75%;
+}
+
+/* bottom 2/3rds, right*/
+#upload-panel {
+    background: green;
+    width: 30%;
+    height: 20;
+}
+
+#upload-btns {
+    height: 3;
+}
+
+#addfile-btn {
+    width: 33%
+}
+
+#removefile-btn {
+    width: 33%;
+}
+
+#upload-btn {
+    width: 33%
+}
+
+#queue-tbl {
+    width: 100%;
 }

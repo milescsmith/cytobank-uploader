@@ -1,59 +1,45 @@
-from typing import Optional, Tuple, NewType
+from typing import Optional, Tuple
 from pathlib import Path
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+
 from cytobank_uploader.interface import _get_auth_token, _list_experiments
+from cytobank_uploader.widgets import ClickableDataTable, UpdateableDirTree
 
 from textual.app import App, ComposeResult
 from textual.layout import Container, Vertical, Horizontal, Center
 from textual.widgets import Button, Header, Footer, DirectoryTree, DataTable, Static, TextInput
 from textual.reactive import var
-from textual.widgets._tree_control import TreeNode, NodeID
-from rich.tree import Tree
-
-@dataclass
-class DirEntry:
-    path: str
-    is_dir: bool
 
 
-class UpdateableDirTree(DirectoryTree):
-    """Variant of the DirectoryTree widget that can handle a change in directory"""
-
-    def update_path(self, newpath, label=None):
-        if label is None:
-            label = str(newpath)
-        self.path = newpath
-        self.data = DirEntry(newpath, True)
-        self._tree = Tree(label)
-        self.node_id = NodeID(0)
-        self.root = TreeNode(None, 0, self, self._tree, label, self.data)
-        self.nodes = {0: self.root}
-        self._tree.label = self.root
-        # self.load_directory(newpath)
-
-
-class ExperimentTable(DataTable):
+class ExperimentTable(ClickableDataTable):
     
     def on_mount(self) -> None:
         self.add_column("Experiment", width=50)
         self.add_column("ID", width=12)
 
 
+class UploadQueueTable(DataTable):
+
+    def on_mount(self) -> None:
+        self.add_column("Upload queue:", width=50)
+        self.add_column("", width=50)
+        self.add_row("Files:", "Project")
+
+
 class ButtonPanel(Static):
     """put buttons here"""
 
     def compose(self) -> None:
-        yield Button("Load token", id="load")
-        yield Button("Request token", id="request")
+        yield Button("Load token", id="load-btn")
+        yield Button("Request token", id="request-btn")
     
 
 class InputPanel(Static):
 
     def compose(self):
-        yield TextInput(placeholder="username", id="username")
+        yield TextInput(placeholder="username", id="username-input")
         # TODO: need to subclass and make a ***** variant
-        yield TextInput(placeholder="password", id="password")
+        yield TextInput(placeholder="password", id="password-input")
 
 
 class TokenPanel(Static):
@@ -81,29 +67,39 @@ class Uploader(App):
     password = var(None)
 
     exp_list = var(None)
-    exptable = ExperimentTable(id="experimenttbl")
     dirtreepath = var(None)
     selectedfile = var(None)
+    selectedexp = var(None)
 
     async def on_text_input_changed(self, event: TextInput.Changed) -> None:
-        if event.sender.id == "username":
+        if event.sender.id == "username-input":
             self.username = event.value
-        elif event.sender.id == "password":
+        elif event.sender.id == "password-input":
             self.password = event.value
-        elif event.sender.id == "filepath":
+        elif event.sender.id == "path-input":
             self.dirtreepath = event.value
-            self.query_one("#tree-two", UpdateableDirTree).update_path(self.dirtreepath)
-            # self.query_one("#tree-two", DirectoryTree).update(self.dirtreepath)
+            if Path(event.value).exists:
+                self.query_one("#path-tree", UpdateableDirTree).update_path(self.dirtreepath)
+
 
     def on_mount(self):
         self.dirtreepath = str(Path().home())
 
+
     def on_directory_tree_file_click(self, event: DirectoryTree.FileClick) -> None:
         self.selectedfile = event.path
-        # self.query_one("#filepath", TextInput).update(self.selectedfile)
+
+
+    def on_click(self, event) -> None:
+        if event.sender.focused.id == "exp-tbl":
+            self.selectedexp = event.sender.focused.contents
+
+    # def on_click(self, event: ClickableDataTable.CellClicked) -> None:
+    #     text_bx = self.query_one("#textbox", Static)
+    #     text_bx.update(event.sender.focused.contents)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "load":
+        if event.button.id == "load-btn":
             _, token_retreive_time = get_token()
             self.query_one("#refresh-text", Static).update(f"Last retreived:\n{token_retreive_time}")
             if (datetime.now() - datetime.fromisoformat(token_retreive_time)) < timedelta(hours=8):
@@ -114,36 +110,50 @@ class Uploader(App):
                 self.token_validity = "INVALID"
                 self.query_one("#valid-token", Static).update(self.token_validity)
                 self.add_class("invalid")
-        elif event.button.id == "request":
+        elif event.button.id == "request-btn":
             _get_auth_token(self.username, self.password, verbose=False)
-        elif event.button.id == "getexperiments":
+        elif event.button.id == "getexp-btn":
             self.exp_list = _list_experiments()
+            exptable = self.query_one("#exp-tbl", ExperimentTable)
             for i in self.exp_list:
                 (
-                    self.exptable.add_row(i.experimentName, str(i.id))
+                    exptable.add_row(i.experimentName, str(i.id))
                 )
+        elif event.button.id == "addfile-btn":
+            upload_queue = self.query_one("#queue-tbl", UploadQueueTable)
+            upload_queue.add_row(str(self.selectedfile), str(self.selectedexp))
+
 
 
     def compose(self) -> ComposeResult:
+        self.dirtreepath = str(Path().home())
         yield Header()
         yield TokenPanel()
-        yield Container(
+        yield Horizontal(
             Vertical(
-                Button("Get Experiments", id="getexperiments"),
-                self.exptable,
-                id="experimentvertical"
+                Button("Get Experiments", id="getexp-btn"),
+                ExperimentTable(id="exp-tbl"),
+                id="experiment-panel"
             ),
-            # Static(
-                TextInput(id="filepath"),
-                UpdateableDirTree(path="./", id="tree-two"),
-                # DirectoryTree(path="./", id="tree-two"),
-            # ),
+            Vertical(
+                TextInput(placeholder = self.dirtreepath, id="path-input"),
+                UpdateableDirTree(path=self.dirtreepath, id="path-tree"),
+                id="path-panel"
+                # DirectoryTree(path="./", id="path-tree"),
+            ),
+            Vertical(
+                Horizontal(
+                    Button("Add file", id="addfile-btn",),
+                    Button("Remove file", id="removefile-btn"),
+                    Button("Upload", id="upload-btn"),
+                    id="upload-btns"
+                ),
+                UploadQueueTable(id="queue-tbl"),
+                id="upload-panel"
+            ),
             classes = "treecontainer"
         )
         yield Footer()
-
-        # self.exptable.add_column("Experiment", width=50)
-        # self.exptable.add_column("ID", width=10)
 
 
 def get_token(config_file: Optional[Path] = None) -> Tuple[str, str]:
