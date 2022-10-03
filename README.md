@@ -13,14 +13,14 @@ cloud-based service where a web browser is unavailable but a command line prompt
 For the moment, `cytobank-uploader` must be installed from Github via pip:
 
 ```
-pip -U install git+https://github.com/milescsmith/cytobank_uploader
+pip -U install git+https://github.com/milescsmith/cytobank-uploader
 ```
 
 Or you can clone this repository and install via [Poetry](https://python-poetry.org)
 
 ```
-git clone https://github.com/milescsmith/cytobank_uploader
-cd cytobank_uploader
+git clone https://github.com/milescsmith/cytobank-uploader
+cd cytobank-uploader
 poetry install
 ```
 
@@ -42,7 +42,7 @@ poetry install
 There are (currently) four subcommands:
 
 * get-auth-token - Get an authorization token from Cytobank. Required for all operations. While the token will be
-    stored to a configuration file, the tokens are only valid for 8 hrs.│
+    stored to a configuration file, the tokens are only valid for 8 hrs.
 * list-experiments - List the experiments associated with the account.  Will print in the form of 
     experimentName: experimentId
 * show-experiment-files - Prints a list the FCS files associated with the given experiment
