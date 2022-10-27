@@ -53,7 +53,7 @@ def test_token(token: str, domain: str = "premium", verbose: bool = False) -> bo
         return True
     elif response["errors"][0] == "Not Authenticated -- invalid or missing auth token":
         return False
-    else
+    else:
         return False
 
 
