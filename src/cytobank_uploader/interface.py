@@ -1,7 +1,6 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from sys import stderr
 from typing import List, Optional, Union
 from warnings import warn
 
@@ -26,13 +25,11 @@ class InvalidTokenError(Exception):
             return "No valid authorization token!"
 
 
-def test_token(token: str, domain: str = "premium", verbose: bool = False) -> bool:
+def test_token(
+    token: str,
+    domain: str = "premium",
+) -> bool:
     """Check to see if an authorization key is valid"""
-
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     url = f"https://{domain}.cytobank.org/cytobank/api/v1/users"
 
@@ -58,7 +55,7 @@ def test_token(token: str, domain: str = "premium", verbose: bool = False) -> bo
 
 
 def load_stored_auth_token(
-    config_file: Optional[Path] = None, verbose: bool = False
+    config_file: Optional[Path] = None,
 ) -> Union[str, bool]:
     """Loads the authorization token from file and test its validity
 
@@ -67,11 +64,6 @@ def load_stored_auth_token(
     str | bool
         Returns the authorization token if present and valid, else False.
     """
-
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     if config_file is None:
         config_file = Path.home() / ".cytobankenvs"
@@ -113,7 +105,8 @@ def load_stored_auth_token(
 
 
 def set_auth_token(
-    auth_token: str, config_file: Optional[Path] = None, verbose: bool = False
+    auth_token: str,
+    config_file: Optional[Path] = None,
 ) -> None:
     """Save the authorization token to a file in the user's home directory
 
@@ -124,10 +117,6 @@ def set_auth_token(
     config_file : Path
         Path to config file in which to store the token.  Defaults to .cytobankenvs in the user's home directory.
     """
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     if config_file is None:
         config_file = Path.home() / ".cytobankenvs"
@@ -146,7 +135,6 @@ def _get_auth_token(
     auth_endpoint: Optional[str] = None,
     cytobank_domain: str = "premium",
     config_file: Optional[Path] = None,
-    verbose: bool = False,
 ) -> str:
     """Get an authorization token from Cytobank. Required for all operations. Looks for a stored token, and it valid
     returns it, otherwise generates a new one.
@@ -174,10 +162,6 @@ def _get_auth_token(
     str
         Loads the stored authorization token if it is found and valid, else generates a new one
     """
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     if auth_token := load_stored_auth_token(config_file):
         logger.debug("stored token was valid")
@@ -247,7 +231,6 @@ def get_upload_token(
     exp_id: int,
     cytobank_domain: str = "premium",
     auth_token: Optional[str] = None,
-    verbose: bool = False,
 ) -> dict[str, Union[str, int, bool, float]]:
     """Use the experimentId and auth token to retreive parameters to upload to
     an AWS s3 bucket
@@ -275,11 +258,6 @@ def get_upload_token(
     requests.HTTPError
         _description_
     """
-
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     if auth_token is None:
         auth_token = _get_auth_token()
@@ -311,7 +289,6 @@ def _upload_files(
     exp_id: int,
     cytobank_domain: str,
     auth_token: Optional[str],
-    verbose: bool,
 ) -> None:
     """Upload one or more FCS files to a Cytobank project
 
@@ -328,10 +305,6 @@ def _upload_files(
     auth_token : Optional[str], optional
         _description_, by default typer.Option(None, "-t", "--token")
     """
-    if verbose:
-        logger.add(stderr, level="DEBUG")
-    else:
-        logger.add(stderr, level="ERROR")
 
     if auth_token is None:
         auth_token = _get_auth_token()

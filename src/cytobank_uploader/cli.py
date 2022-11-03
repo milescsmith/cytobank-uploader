@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
@@ -30,7 +31,7 @@ def version_callback(value: bool) -> None:
     """Prints the version of the package."""
     if value:
         console.print(
-            f"[yellow]cellranger_scripts[/] version: [bold blue]{__version__}[/]"
+            f"[yellow]{__name__.split('.')[0]}[/] version: [bold blue]{__version__}[/]"
         )
         raise typer.Exit()
 
@@ -41,6 +42,18 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="markdown",
 )
+
+
+def unpack(iterable):
+    logger.debug(f"{iterable=}")
+    for i in iterable:
+        logger.debug(f"{i=}")
+        if "__iter__" in dir(i):
+            for j in i:
+                logger.debug(f"{j=}")
+                yield j
+        else:
+            yield i
 
 
 @app.command(no_args_is_help=True)
@@ -76,6 +89,9 @@ def get_auth_token(
         help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
     ),
     verbose: bool = typer.Option(False, "-v", "--verbose"),
+    version: Optional[bool] = typer.Option(
+        None, "--version", callback=version_callback
+    ),
 ) -> str:
     """Get an authorization token from Cytobank. Required for all operations.
     While the token will be stored to a configuration file, the tokens are only valid for 8 hrs.
@@ -156,6 +172,10 @@ def list_experiments(
         A list of the current experiments, in the form of **experimentTitle**: **experimentId**
 
     """
+    logger.add(
+        f"{__name__}_{datetime.now().strftime('%d-%m-%Y--%H-%M-%S')}.log", level="DEBUG"
+    )
+
     if verbose:
         logger.add(stderr, level="DEBUG")
     else:
@@ -233,13 +253,24 @@ def upload_files(
     upload_token = get_upload_token(username, exp_id, cytobank_domain, auth_token)
     logger.debug(upload_token)
 
+    if not isinstance(files, list):
+        files = [files]
+    for _ in files:
+        if _.is_dir():
+            logger.debug(f"{_} is a dir")
+        elif _.is_file():
+            logger.debug(f"{_} is a file")
+        else:
+            logger.debug(f"I don't know what {_} is")
+
+    filelist = unpack([list(_.glob("*.fcs")) if _.is_dir() else _ for _ in files])
+
     _upload_files(
-        files=files,
+        files=filelist,
         username=username,
         exp_id=exp_id,
         cytobank_domain=cytobank_domain,
         auth_token=auth_token,
-        verbose=verbose,
     )
 
 
