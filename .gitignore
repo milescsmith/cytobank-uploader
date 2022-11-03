@@ -138,3 +138,4 @@ cython_debug/
 
 .env
 **/*.ipynb
+test_clean_control_200-2104-V0_mk3.fcs
