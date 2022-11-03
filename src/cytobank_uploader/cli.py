@@ -130,7 +130,6 @@ def get_auth_token(
         base_url=base_url,
         auth_endpoint=auth_endpoint,
         cytobank_domain=cytobank_domain,
-        verbose=verbose,
     )
     return token
 
