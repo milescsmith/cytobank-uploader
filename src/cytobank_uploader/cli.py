@@ -1,3 +1,4 @@
+# TODO: need more error checking and handling
 from datetime import datetime
 import json
 from pathlib import Path
@@ -171,6 +172,7 @@ def list_experiments(
         A list of the current experiments, in the form of **experimentTitle**: **experimentId**
 
     """
+    # TODO: add filtering options.  Grep/Ack/Ripgrep is fine, but do we want to rely on it?
     logger.add(
         f"{__name__}_{datetime.now().strftime('%d-%m-%Y--%H-%M-%S')}.log", level="DEBUG"
     )
