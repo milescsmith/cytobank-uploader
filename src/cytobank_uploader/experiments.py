@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 
-class Experiment(object):
+class Experiment:
     def __init__(
         self,
         ident: Optional[int] = None,
@@ -35,16 +35,8 @@ class Experiment(object):
         self.sources = sources
         self.experimentName = experimentName
         self.gateVersion = gateVersion
-        self.createdAt = (
-            datetime.fromisoformat(createdAt.rstrip("Z"))
-            if createdAt is not None
-            else None
-        )
-        self.updatedAt = (
-            datetime.fromisoformat(updatedAt.rstrip("Z"))
-            if updatedAt is not None
-            else None
-        )
+        self.createdAt = datetime.fromisoformat(createdAt.rstrip("Z")) if createdAt is not None else None
+        self.updatedAt = datetime.fromisoformat(updatedAt.rstrip("Z")) if updatedAt is not None else None
         self.primaryResearcherId = primaryResearcherId
         self.principalInvestigatorId = principalInvestigatorId
         self.uploaderId = uploaderId
@@ -65,28 +57,7 @@ class Experiment(object):
         return getattr(self, item)
 
     def print_details(self):
-        print(
-            f"id: {self.id}\n"
-            f"version: {self.version}\n"
-            f"purpose: {self.purpose}\n"
-            f"comments: {self.comments}\n"
-            f"public: {self.public}\n"
-            f"deleted: {self.deleted}\n"
-            f"sources: {self.sources}\n"
-            f"experimentName: {self.experimentName}\n"
-            f"gateVersion: {self.gateVersion}\n"
-            f"createdAt: {self.createdAt}\n"
-            f"updatedAt: {self.updatedAt}\n"
-            f"primaryResearcherId: {self.primaryResearcherId}\n"
-            f"principalInvestigatorId: {self.principalInvestigatorId}\n"
-            f"uploaderId: {self.uploaderId}\n"
-            f"projectId: {self.projectId}\n"
-            f"clonedFrom: {self.clonedFrom}\n"
-            f"createdFrom: {self.createdFrom}\n"
-            f"childType: {self.childType}\n"
-            f"createdFromUrl: {self.createdFromUrl}\n"
-            f"publishedReportId: {self.publishedReportId}"
-        )
+        pass
 
     @classmethod
     def from_dict(cls, source):
@@ -102,14 +73,10 @@ class Experiment(object):
         exp.experimentName = source["experimentName"]
         exp.gateVersion = source["gateVersion"]
         exp.createdAt = (
-            datetime.fromisoformat(source["createdAt"].rstrip("Z"))
-            if source["createdAt"] is not None
-            else None
+            datetime.fromisoformat(source["createdAt"].rstrip("Z")) if source["createdAt"] is not None else None
         )
         exp.updatedAt = (
-            datetime.fromisoformat(source["updatedAt"].rstrip("Z"))
-            if source["updatedAt"] is not None
-            else None
+            datetime.fromisoformat(source["updatedAt"].rstrip("Z")) if source["updatedAt"] is not None else None
         )
         exp.primaryResearcherId = source["primaryResearcherId"]
         exp.principalInvestigatorId = source["principalInvestigatorId"]

@@ -1,13 +1,16 @@
+import contextlib
 from dataclasses import dataclass
-from textual.message import Message
-from textual._types import MessageTarget
-from textual import events
-from rich.tree import Tree
-from textual.widgets._data_table import Coord
-from textual.widgets._tree_control import TreeNode, NodeID
-from textual.widgets import DirectoryTree, DataTable
 
-from rich.progress import Progress
+# from rich.progress import Progress
+from rich.tree import Tree
+from textual import events
+from textual._types import MessageTarget
+from textual.message import Message
+from textual.widgets import DataTable, DirectoryTree
+
+# from textual.widgets._data_table import Coord
+from textual.widgets._tree_control import NodeID, TreeNode
+
 
 @dataclass
 class DirEntry:
@@ -22,17 +25,13 @@ class ClickableDataTable(DataTable):
         def __init__(self, sender: MessageTarget, contents: str) -> None:
             self.contents = contents
             super().__init__(sender)
-    
+
     def on_click(self, event: events.Click) -> None:
-        meta = event.style.meta
-        if meta:
-            try:
+        if meta := event.style.meta:
+            with contextlib.suppress(KeyError):
                 self.contents = self.data[meta["row"]][meta["column"]]
                 export = self.CellClicked(self, self.contents)
                 self.emit(export)
-            except KeyError:
-                pass
-
 
 
 class UpdateableDirTree(DirectoryTree):

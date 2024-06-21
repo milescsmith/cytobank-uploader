@@ -1,23 +1,20 @@
-import json
 from pathlib import Path
-from pprint import pprint
 from sys import stderr
-from typing import Optional
+from typing import Annotated, Optional
 
-import requests
 import typer
 from loguru import logger
 from rich.console import Console
 from rich.traceback import install
 
-from . import __version__
-from .experiments import Experiment
-from .interface import (
+from cytobank_uploader import __version__
+from cytobank_uploader.experiments import Experiment
+from cytobank_uploader.interface import (
     _get_auth_token,
     _list_experiment_fcs_files,
+    _list_experiments,
     _upload_files,
     get_upload_token,
-    _list_experiments,
 )
 
 install(show_locals=True)
@@ -30,9 +27,7 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Prints the version of the package."""
     if value:
-        console.print(
-            f"[yellow]cellranger_scripts[/] version: [bold blue]{__version__}[/]"
-        )
+        console.print(f"[yellow]cellranger_scripts[/] version: [bold blue]{__version__}[/]")
         raise typer.Exit()
 
 
@@ -46,37 +41,55 @@ app = typer.Typer(
 
 @app.command(no_args_is_help=True)
 def get_auth_token(
-    username: Optional[str] = typer.Option(
-        None,
-        "-u",
-        "--username",
-        help="Cytobank username. You will need to provide this if the existing token is invalid",
-    ),
-    password: Optional[str] = typer.Option(
-        None,
-        "-p",
-        "--password",
-        help="Account password. You will need to provide this if the existing token is invalid",
-    ),
-    base_url: Optional[str] = typer.Option(
-        None,
-        "-b",
-        "--baseurl",
-        help="Change the API base url if necessary for some reason.",
-    ),
-    auth_endpoint: Optional[str] = typer.Option(
-        None,
-        "-e",
-        "--endpoint",
-        help="Change the default authorization endpoint, if necessary for some reason",
-    ),
-    cytobank_domain: str = typer.Option(
-        "premium",
-        "-d",
-        "--domain",
-        help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
-    ),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
+    username: Annotated[
+        str,
+        typer.Option(
+            None,
+            "-u",
+            "--username",
+            help="Cytobank username. You will need to provide this if the existing token is invalid",
+        ),
+    ],
+    password: Annotated[
+        str,
+        typer.Option(
+            None,
+            "-p",
+            "--password",
+            help="Account password. You will need to provide this if the existing token is invalid",
+        ),
+    ],
+    base_url: Annotated[
+        str,
+        typer.Option(
+            None,
+            "-b",
+            "--baseurl",
+            help="Change the API base url if necessary for some reason.",
+        ),
+    ],
+    auth_endpoint: Annotated[
+        str,
+        typer.Option(
+            None,
+            "-e",
+            "--endpoint",
+            help="Change the default authorization endpoint, if necessary for some reason",
+        ),
+    ],
+    cytobank_domain: Annotated[
+        str,
+        typer.Option(
+            "premium",
+            "-d",
+            "--domain",
+            help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
+        ),
+    ],
+    verbose: Annotated[
+        bool,
+        typer.Option("-v", "--verbose"),
+    ] = False,
 ) -> str:
     """Get an authorization token from Cytobank. Required for all operations.
     While the token will be stored to a configuration file, the tokens are only valid for 8 hrs.
@@ -122,16 +135,20 @@ def get_auth_token(
 
 @app.command(no_args_is_help=False)
 def list_experiments(
-    auth_token: Optional[str] = typer.Option(
-        None, "-t", "--token", help="Manually provide the authorization token"
-    ),
-    cytobank_domain: str = typer.Option(
-        "premium",
-        "-d",
-        "--domain",
-        help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
-    ),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
+    auth_token: Annotated[str, typer.Argument("-t", "--token", help="Manually provide the authorization token")],
+    cytobank_domain: Annotated[
+        Optional[str],
+        typer.Option(
+            "premium",
+            "-d",
+            "--domain",
+            help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("-v", "--verbose"),
+    ] = False,
 ) -> list[Experiment]:
     """List the experiments associated with the account.  Will print in the form
     of `experimentName`: `experimentId`
@@ -154,33 +171,31 @@ def list_experiments(
         A list of the current experiments, in the form of **experimentTitle**: **experimentId**
 
     """
-    
 
-    experiments_list = _list_experiments(
-        auth_token,
-        cytobank_domain,
-        verbose=verbose
-    )
-    
+    experiments_list = _list_experiments(auth_token, cytobank_domain, verbose=verbose)
+
     for _ in experiments_list:
-        pprint(_)
+        pass
 
     return experiments_list
 
 
 @app.command(no_args_is_help=True)
 def upload_files(
-    files: list[Path] = typer.Option(..., "-f", "--files"),
-    username: str = typer.Option(..., "-u", "--username"),
-    exp_id: int = typer.Option(..., "-i", "--id"),
-    cytobank_domain: str = typer.Option(
-        "premium",
-        "-d",
-        "--domain",
-        help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
-    ),
-    auth_token: Optional[str] = typer.Option(None, "-t", "--token"),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
+    files: Annotated[list[Path], typer.Option("-f", "--files")],
+    username: Annotated[str, typer.Option("-u", "--username")],
+    exp_id: Annotated[int, typer.Option("-i", "--id")],
+    cytobank_domain: Annotated[
+        str,
+        typer.Option(
+            "premium",
+            "-d",
+            "--domain",
+            help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
+        ),
+    ],
+    auth_token: Annotated[Optional[str], typer.Option("-t", "--token")] = None,
+    verbose: Annotated[bool, typer.Option("-v", "--verbose")] = False,
 ) -> None:
     """Upload one or more FCS files to a Cytobank project
 
@@ -226,20 +241,25 @@ def upload_files(
 
 @app.command(no_args_is_help=True)
 def show_experiment_files(
-    expid: int = typer.Argument(
-        ...,
-        help="Id for the experiment in question. Can be found using list_experiments()",
-    ),
-    cytobank_domain: str = typer.Option(
-        "premium",
-        "-d",
-        "--domain",
-        help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
-    ),
-    auth_token: Optional[str] = typer.Option(
-        None, "-t", "--token", help="Manually provide the authorization token"
-    ),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
+    expid: Annotated[
+        int,
+        typer.Argument(
+            help="Id for the experiment in question. Can be found using list_experiments()",
+        ),
+    ],
+    cytobank_domain: Annotated[
+        str,
+        typer.Option(
+            "premium",
+            "-d",
+            "--domain",
+            help="Change the Cytobank domain. Required if you are using Cytobank Enterprise.",
+        ),
+    ],
+    auth_token: Annotated[
+        Optional[str], typer.Option("-t", "--token", help="Manually provide the authorization token")
+    ] = None,
+    verbose: Annotated[bool, typer.Option("-v", "--verbose")] = False,
 ) -> None:
     """Prints a list the FCS files associated with the given experiment
 
@@ -267,8 +287,4 @@ def show_experiment_files(
     if auth_token is None:
         auth_token = get_auth_token()
 
-    fcs_files = _list_experiment_fcs_files(
-        experimentId=expid, cytobank_domain=cytobank_domain, auth_token=auth_token
-    )
-
-    print("\n".join(fcs_files))
+    _list_experiment_fcs_files(experimentId=expid, cytobank_domain=cytobank_domain, auth_token=auth_token)

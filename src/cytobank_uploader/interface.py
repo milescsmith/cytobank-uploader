@@ -1,20 +1,21 @@
 import json
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from pathlib import Path
 from sys import stderr
-from typing import List, Optional, Union
 from warnings import warn
+from zoneinfo import ZoneInfo
 
 import requests
 from boto3 import client
 from loguru import logger
 from tqdm.auto import tqdm
 
-from .experiments import Experiment
+from cytobank_uploader.experiments import Experiment
 
 
 class InvalidTokenError(Exception):
-    def __init__(self, token: Optional[str] = None, message: Optional[str] = None):
+    def __init__(self, token: str | None = None, message: str | None = None):
         self.token = token
         self.message = message
         super().__init__(self.message)
@@ -40,26 +41,17 @@ def test_token(token: str, domain: str = "premium", verbose: bool = False) -> bo
     files = {}
     headers = {"Authorization": f"Bearer {token}"}
 
-    response = json.loads(
-        requests.get(url, headers=headers, data=payload, files=files).text
-    )
+    response = json.loads(requests.get(url, headers=headers, data=payload, files=files, timeout=10).text)
 
     # so, little weird but I cannot find any other calls one can make, other than retreiving
     # the list of experiments that will work without any other information, and that call
     # is slow; asking for the list or users only works with *admin* users, but if the token
     # is invalid, it returns a different error than if it was valid.
     logger.debug(response["errors"][0])
-    if response["errors"][0] == "Not Authorized To Access Resource":
-        return True
-    elif response["errors"][0] == "Not Authenticated -- invalid or missing auth token":
-        return False
-    else:
-        return False
+    return response["errors"][0] == "Not Authorized To Access Resource"
 
 
-def load_stored_auth_token(
-    config_file: Optional[Path] = None, verbose: bool = False
-) -> Union[str, bool]:
+def load_stored_auth_token(config_file: Path | None = None, verbose: bool = False) -> str | bool:
     """Loads the authorization token from file and test its validity
 
     Returns
@@ -77,44 +69,29 @@ def load_stored_auth_token(
         config_file = Path.home() / ".cytobankenvs"
         logger.debug(config_file.exists())
 
-    if config_file.exists():
-        config = {
-            k.split("=")[0]: k.split("=")[1]
-            for k in config_file.read_text().rstrip().split("\n")
-        }
+    if not config_file.exists():
+        return False
+    config = {k.split("=")[0]: k.split("=")[1] for k in config_file.read_text().rstrip().split("\n")}
 
-        if "API_TOKEN" in config:
-            logger.debug(f"{config['API_TOKEN']}")
-            if "RETRIEVE_TIME" in config:
-                logger.debug(f"{config['RETRIEVE_TIME']}")
-                try:
-                    if (
-                        datetime.now() - datetime.fromisoformat(config["RETRIEVE_TIME"])
-                    ) < timedelta(hours=8):
-                        if test_token(config["API_TOKEN"]):
-                            logger.debug("stored token is valid")
-                            return config["API_TOKEN"]
-                        else:
-                            return False
-                    else:
-                        return False
-                except ValueError:
-                    print(
-                        "The value for the token retrieval time is unable to be parsed, assuming it needs to requested again"
-                    )
-                    return False
-        else:
-            print("No stored authorization token was found")
-            return False
-
-    else:
-        print(f"a valid configuration file at {config_file} was not found.")
+    if "API_TOKEN" not in config:
         return False
 
+    logger.debug(f"{config['API_TOKEN']}")
+    if "RETRIEVE_TIME" in config:
+        logger.debug(f"{config['RETRIEVE_TIME']}")
+        try:
+            if datetime.now(tz=ZoneInfo("UTC")) - datetime.fromisoformat(config["RETRIEVE_TIME"]) >= timedelta(hours=8):
+                return False
+            if test_token(config["API_TOKEN"]):
+                logger.debug("stored token is valid")
+                return config["API_TOKEN"]
+            else:
+                return False
+        except ValueError:
+            return False
 
-def set_auth_token(
-    auth_token: str, config_file: Optional[Path] = None, verbose: bool = False
-) -> None:
+
+def set_auth_token(auth_token: str, config_file: Path | None = None, verbose: bool = False) -> None:
     """Save the authorization token to a file in the user's home directory
 
     Parameters
@@ -136,16 +113,16 @@ def set_auth_token(
 
     if not config_file.exists():
         config_file.touch()
-    config_file.write_text(f"API_TOKEN={auth_token}\nRETRIEVE_TIME={datetime.now()}")
+    config_file.write_text(f"API_TOKEN={auth_token}\nRETRIEVE_TIME={datetime.now(tz=ZoneInfo("UTC"))}")
 
 
 def _get_auth_token(
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    base_url: Optional[str] = None,
-    auth_endpoint: Optional[str] = None,
+    username: str | None = None,
+    password: str | None = None,
+    base_url: str | None = None,
+    auth_endpoint: str | None = None,
     cytobank_domain: str = "premium",
-    config_file: Optional[Path] = None,
+    config_file: Path | None = None,
     verbose: bool = False,
 ) -> str:
     """Get an authorization token from Cytobank. Required for all operations. Looks for a stored token, and it valid
@@ -185,7 +162,8 @@ def _get_auth_token(
     else:
         if (username is None) or (password is None):
             warn(
-                "A valid authorization token was not found. Please provide the username and password and generate a new one."
+                "A valid authorization token was not found. Please provide the username and password and generate a new one.",
+                stacklevel=2,
             )
             raise InvalidTokenError()
         logger.debug("stored token is invalid, generating new one")
@@ -197,14 +175,11 @@ def _get_auth_token(
 
         payload = {"username": username, "password": password}
 
-        response = requests.post(
-            url=auth_endpoint,
-            data=payload,
-        )
+        response = requests.post(url=auth_endpoint, data=payload, timeout=10)
 
         logger.debug(f"{response.status_code=}")
 
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             response_parsed = json.loads(response.text)
             auth_token: str = response_parsed["user"]["authToken"]
             logger.debug(f"{auth_token=}")
@@ -212,10 +187,11 @@ def _get_auth_token(
 
             return auth_token
         else:
-            raise requests.HTTPError(f"HTTP error with code {response.status_code}")
+            msg = f"HTTP error with code {response.status_code}"
+            raise requests.HTTPError(msg)
 
 
-def get_experiment_id(title: str, exp_list: list[Experiment]) -> Union[int, None]:
+def get_experiment_id(title: str, exp_list: list[Experiment]) -> int | None:
     """Given a list of Experiment objects, return the id for the
     Experiment with the matching title
 
@@ -235,9 +211,9 @@ def get_experiment_id(title: str, exp_list: list[Experiment]) -> Union[int, None
     ident = [_ for _ in exp_list if _.experimentName == title]
 
     if len(ident) != 1:
-        warn(f"More than one experiment was found titled {title}!")
-        for _ in ident:
-            print(f"{_.experimentName}: {_.experimentId}")
+        warn(f"More than one experiment was found titled {title}!", stacklevel=2)
+        # for _ in ident:
+        #     pass
     else:
         return ident[0].id
 
@@ -246,9 +222,9 @@ def get_upload_token(
     username: str,
     exp_id: int,
     cytobank_domain: str = "premium",
-    auth_token: Optional[str] = None,
+    auth_token: str | None = None,
     verbose: bool = False,
-) -> dict[str, Union[str, int, bool, float]]:
+) -> dict[str, str | int | bool | float]:
     """Use the experimentId and auth token to retreive parameters to upload to
     an AWS s3 bucket
 
@@ -267,7 +243,7 @@ def get_upload_token(
 
     Returns
     -------
-    dict[str, Union[str, int, bool, float]]
+    dict[str, str | int | bool | float]
         _description_
 
     Raises
@@ -292,15 +268,14 @@ def get_upload_token(
 
     upload_token_endpoint = f"https://{cytobank_domain}-api.cytobank.org/api/v1/upload/token?userId={username}&experimentId={exp_id}&acs=false"
     logger.debug(f"{upload_token_endpoint=}")
-    upload_token_response = requests.get(url=upload_token_endpoint, headers=headers)
+    upload_token_response = requests.get(url=upload_token_endpoint, headers=headers, timeout=10)
 
-    if upload_token_response.status_code == 200:
+    if upload_token_response.status_code == HTTPStatus.OK:
         utr_parsed = json.loads(upload_token_response.text)
         logger.debug(f"{utr_parsed['accessKeyId']=}")
     else:
-        raise requests.HTTPError(
-            f"HTTP error with code {upload_token_response.status_code}"
-        )
+        msg = f"HTTP error with code {upload_token_response.status_code}"
+        raise requests.HTTPError(msg)
 
     return utr_parsed
 
@@ -310,8 +285,8 @@ def _upload_files(
     username: str,
     exp_id: int,
     cytobank_domain: str,
-    auth_token: Optional[str],
-    verbose: bool,
+    auth_token: str | None = None,
+    verbose: bool = False,
 ) -> None:
     """Upload one or more FCS files to a Cytobank project
 
@@ -358,7 +333,6 @@ def _upload_files(
                 unit_scale=True,
                 unit_divisor=1024,
             ) as pbar:
-
                 s3_client.upload_file(
                     Filename=str(file.resolve()),
                     Bucket=upload_token["uploadBucketName"],
@@ -367,15 +341,15 @@ def _upload_files(
                 )
 
         else:
-            raise FileNotFoundError(f"{file.resolve} was not found")
+            msg = f"{file.resolve} was not found"
+            raise FileNotFoundError(msg)
 
 
 def _list_experiment_fcs_files(
     experimentId: int,
     cytobank_domain: str = "premium",
-    auth_token: Optional[str] = None,
-) -> List[str]:
-
+    auth_token: str | None = None,
+) -> list[str]:
     if auth_token is None:
         auth_token = _get_auth_token()
     elif not test_token(auth_token):
@@ -391,26 +365,25 @@ def _list_experiment_fcs_files(
         url=f"{base_url}/{fcsfiles_endpoint}",
         headers=headers,
         data=payload,
+        timeout=10,
     )
 
-    if fcs_file_response.status_code == 200:
+    if fcs_file_response.status_code == HTTPStatus.OK:
         fcs_files_info = json.loads(fcs_file_response.text)
         fcs_files = [_["filename"] for _ in fcs_files_info["fcsFiles"]]
     else:
-        raise requests.HTTPError(
-            f"HTTP error with code {fcs_file_response.status_code}"
-        )
+        msg = f"HTTP error with code {fcs_file_response.status_code}"
+        raise requests.HTTPError(msg)
 
     return fcs_files
 
 
 def _list_experiments(
-    auth_token: Optional[str] = None,
+    auth_token: str | None = None,
     cytobank_domain: str = "premium",
     print_list: bool = False,
     verbose: bool = False,
-    ) -> List[str]:
-
+) -> list[str]:
     if verbose:
         logger.add(stderr, level="DEBUG")
     else:
@@ -428,13 +401,13 @@ def _list_experiments(
         url=f"https://{cytobank_domain}.cytobank.org/cytobank/api/v1/experiments",
         headers=headers,
         data=payload,
+        timeout=10,
     )
 
-    if response.status_code == 200:
-        experiments_list = [
-            Experiment.from_dict(_) for _ in json.loads(response.text)["experiments"]
-        ]
+    if response.status_code == HTTPStatus.OK:
+        experiments_list = [Experiment.from_dict(_) for _ in json.loads(response.text)["experiments"]]
     else:
-        raise requests.HTTPError(f"HTTP error with code {response.status_code}")
-    
+        msg = f"HTTP error with code {response.status_code}"
+        raise requests.HTTPError(msg)
+
     return experiments_list

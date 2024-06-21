@@ -1,4 +1,5 @@
 """cytobank_uploader"""
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:
