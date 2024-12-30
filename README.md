@@ -1,3 +1,7 @@
+# Note: Abandoned
+
+My lab no longer uses Cytobank and I no longer have API access, so not only can I not test any changes, I don't care about using Cytobank.
+
 # Cytobank Uploader
 
 Upload FCS files to Cytobank without needing a web browser.
